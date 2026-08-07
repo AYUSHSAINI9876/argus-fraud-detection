@@ -1,0 +1,4 @@
+# Trained artefacts land here — regenerate with `python -m argus_ml.train`.
+# Everything except evaluation.json and global_importance.json is gitignored:
+# the parquet stream and joblib models are large and reproducible, the two
+# JSON reports are small and worth reviewing in a diff.

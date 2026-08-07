@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Argus mark: a shield with a watching eye. The hundred-eyed watchman. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5b8def"/>
+      <stop offset="100%" stop-color="#2d4a80"/>
+    </linearGradient>
+  </defs>
+  <path d="M16 2 L28 7 v9c0 7.2-4.9 12.6-12 14C8.9 28.6 4 23.2 4 16V7z"
+        fill="url(#g)"/>
+  <ellipse cx="16" cy="15.5" rx="7.5" ry="5" fill="#0a0c10" opacity="0.55"/>
+  <circle cx="16" cy="15.5" r="3.2" fill="#e8ecf2"/>
+  <circle cx="16" cy="15.5" r="1.5" fill="#0a0c10"/>
+</svg>

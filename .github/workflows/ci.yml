@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ml:
+    name: ML — lint, test, training smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install
+        working-directory: ml
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Lint
+        working-directory: ml
+        run: uv run ruff check argus_ml
+
+      - name: Unit tests
+        working-directory: ml
+        run: uv run pytest --cov=argus_ml --cov-report=term-missing
+
+      # A model that trains is not the same as a model that is any good.
+      # This gate trains on a small world and fails the build if the champion
+      # cannot beat the logistic baseline — catching a regression in feature
+      # engineering that unit tests would happily pass.
+      - name: Training smoke + baseline gate
+        working-directory: ml
+        run: |
+          uv run python -m argus_ml.train --customers 1500 --days 90 --out ./artifacts_ci
+          uv run python - <<'PY'
+          import json, sys
+          reports = json.load(open("artifacts_ci/evaluation.json"))
+          by = {r["model_name"]: r for r in reports}
+          base = by["logistic_baseline"]["pr_auc"]
+          champ = by["xgboost_risk"]["pr_auc"]
+          print(f"baseline PR-AUC {base:.4f} | champion PR-AUC {champ:.4f}")
+          if champ <= base:
+              sys.exit(f"REGRESSION: champion {champ:.4f} did not beat baseline {base:.4f}")
+          print("baseline gate passed")
+          PY
+
+  api:
+    name: API — lint and test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: argus
+          POSTGRES_PASSWORD: argus
+          POSTGRES_DB: argus_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install
+        working-directory: api
+        run: |
+          uv venv
+          uv pip install -e "../ml" -e ".[dev]"
+
+      - name: Lint
+        working-directory: api
+        run: uv run ruff check app
+
+      - name: Tests
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql+asyncpg://argus:argus@localhost:5432/argus_test
+          REDIS_URL: redis://localhost:6379/0
+          AUTH_ENABLED: "false"
+        run: uv run pytest
+
+  web:
+    name: Web — typecheck, lint, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - working-directory: web
+        run: npm ci || npm install
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Build
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+        run: npm run build
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/api.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
