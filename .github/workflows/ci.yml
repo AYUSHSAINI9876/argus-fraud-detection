@@ -90,6 +90,21 @@ jobs:
         working-directory: api
         run: uv run ruff check app
 
+      # Apply migrations against a real Postgres, then assert the resulting
+      # schema matches the models. `alembic check` fails if autogenerate would
+      # produce a non-empty diff — i.e. if someone changed a model without
+      # writing the migration for it. Without this, schema drift is only
+      # discovered on deploy.
+      - name: Migrations apply and match models
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql+asyncpg://argus:argus@localhost:5432/argus_test
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
       - name: Tests
         working-directory: api
         env:
