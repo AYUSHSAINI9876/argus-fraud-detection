@@ -443,8 +443,12 @@ def _episode_bust_out(rng, cust, merchants, start_ts) -> list[dict]:
             "merchant_id": str(m.merchant_id),
             "merchant_category": str(m.category),
             "amount": round(amount, 2),
-            "channel": Channel.ECOMMERCE.value if rng.random() < 0.6 else Channel.CARD_PRESENT.value,
-            "entry_mode": EntryMode.ONLINE.value if rng.random() < 0.6 else EntryMode.CHIP.value,
+            "channel": (
+                Channel.ECOMMERCE.value if rng.random() < 0.6 else Channel.CARD_PRESENT.value
+            ),
+            "entry_mode": (
+                EntryMode.ONLINE.value if rng.random() < 0.6 else EntryMode.CHIP.value
+            ),
             "device_id": cust.primary_device,
             "ip_country": cust.home_country,
             "lat": float(m.lat), "lon": float(m.lon),

@@ -247,7 +247,10 @@ class ScoringService:
             anomaly_score=anomaly_score,
             outcome=outcome,
             attributions=attributions,
-            model_version=f"{self.bundle.settings.champion_model}:{getattr(meta, 'version', 'unknown')}",
+            model_version=(
+                f"{self.bundle.settings.champion_model}"
+                f":{getattr(meta, 'version', 'unknown')}"
+            ),
             challenger_score=challenger_score,
             latency_ms=latency_ms,
             scored_at=datetime.now(UTC),
