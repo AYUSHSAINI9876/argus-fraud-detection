@@ -1,0 +1,85 @@
+name: argus
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus
+      POSTGRES_DB: argus
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # Feature state is a cache with a durable source of truth (the decisions
+    # table), so an AOF is unnecessary — but eviction must never silently drop
+    # a customer's velocity window, hence noeviction over a generous limit.
+    command: redis-server --maxmemory 512mb --maxmemory-policy noeviction
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/api.Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
+      REDIS_URL: redis://redis:6379/0
+      ARTIFACTS_DIR: /app/ml/artifacts
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      STACK_PROJECT_ID: ${STACK_PROJECT_ID:-}
+      STACK_SECRET_SERVER_KEY: ${STACK_SECRET_SERVER_KEY:-}
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Artefacts are mounted rather than baked so retraining does not require
+      # an image rebuild.
+      - ./ml/artifacts:/app/ml/artifacts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: ../infra/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    environment:
+      NEXT_PUBLIC_STACK_PROJECT_ID: ${STACK_PROJECT_ID:-}
+      NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${STACK_PUBLISHABLE_CLIENT_KEY:-}
+      STACK_SECRET_SERVER_KEY: ${STACK_SECRET_SERVER_KEY:-}
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

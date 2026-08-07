@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-surface-0 text-ink-hi antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "tnum";
+  }
+
+  /* Tabular numerals everywhere numbers are compared vertically — without
+     this, digits shift width and columns of currency look ragged. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-accent/30;
+  }
+
+  /* Scrollbars styled to match the panel rather than punching a bright
+     rectangle through a dark UI. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-1;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-4 rounded-full border-2 border-solid border-surface-1;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-lo;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-surface-1 border border-surface-3 rounded-panel;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between px-4 py-3 border-b border-surface-3;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm
+           font-medium transition-colors disabled:opacity-40
+           disabled:cursor-not-allowed focus-visible:outline-none
+           focus-visible:ring-2 focus-visible:ring-accent
+           focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent/85;
+  }
+
+  .btn-ghost {
+    @apply btn bg-surface-3 text-ink-hi hover:bg-surface-4;
+  }
+
+  .btn-danger {
+    @apply btn bg-risk-severe/15 text-risk-severe border border-risk-severe/30
+           hover:bg-risk-severe/25;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5
+           text-2xs font-medium uppercase tracking-wide;
+  }
+
+  .field-label {
+    @apply text-2xs uppercase tracking-wider text-ink-lo font-medium;
+  }
+}
