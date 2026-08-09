@@ -1,0 +1,82 @@
+# Render Blueprint — provisions Postgres, Redis and the API in one apply.
+#
+# Render reads this from the repo root. The frontend is NOT here: Next.js
+# deploys to Vercel, which is where it belongs (edge CDN, image optimisation,
+# server components). Render runs the things that need a persistent process
+# and a private network — the scoring API and its two datastores.
+#
+# Apply:  Render Dashboard -> New -> Blueprint -> pick this repo
+#
+# Note on the free tier: free web services sleep after 15 minutes idle and
+# take ~50s to wake. Fine for a portfolio demo, wrong for anything real. The
+# `plan` lines are the only edit needed to move to paid.
+
+databases:
+  - name: argus-postgres
+    databaseName: argus
+    user: argus
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  # ---- Redis: rolling customer feature state --------------------------
+  - type: redis
+    name: argus-redis
+    plan: free
+    ipAllowList: []          # private network only; nothing external reaches it
+    # noeviction is deliberate. This Redis holds velocity windows that feed
+    # the model — silently evicting a key would make a burst attack score as
+    # a first-ever transaction. Better to error than to score wrongly.
+    maxmemoryPolicy: noeviction
+
+  # ---- FastAPI scoring service ----------------------------------------
+  - type: web
+    name: argus-api
+    runtime: docker
+    dockerfilePath: ./infra/api.Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Render emits `postgres://`; Settings._normalise_database_url rewrites
+      # it to the asyncpg form at load, so this can be wired straight through.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: argus-postgres
+          property: connectionString
+
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: argus-redis
+          property: connectionString
+
+      # Artefacts ship inside the image (~1.5 MB), so no object store is
+      # needed for the models to be present at boot.
+      - key: ARTIFACTS_DIR
+        value: /app/ml/artifacts
+
+      # Auth is ON in production. The service refuses to start otherwise —
+      # see get_current_user(). These three must be set in the dashboard.
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: STACK_PROJECT_ID
+        sync: false
+      - key: STACK_SECRET_SERVER_KEY
+        sync: false
+
+      # Set to your Vercel URL once the frontend is deployed.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Optional — the analyst copilot degrades gracefully when absent.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
