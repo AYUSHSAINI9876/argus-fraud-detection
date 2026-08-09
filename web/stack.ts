@@ -29,9 +29,14 @@ import { StackServerApp } from "@stackframe/stack";
  * instead of silently. Every existing `stackServerApp.getUser()` call site
  * keeps working unchanged.
  */
-let instance: StackServerApp | undefined;
+// `<true>` is the HasTokenStore generic. Constructing with a `tokenStore`
+// infers it automatically, but the proxy's target is a cast — so it has to be
+// stated explicitly or `StackProvider` rejects the value.
+type ServerApp = StackServerApp<true>;
 
-function getApp(): StackServerApp {
+let instance: ServerApp | undefined;
+
+function getApp(): ServerApp {
   if (!instance) {
     instance = new StackServerApp({
       tokenStore: "nextjs-cookie",
@@ -47,7 +52,7 @@ function getApp(): StackServerApp {
   return instance;
 }
 
-export const stackServerApp = new Proxy({} as StackServerApp, {
+export const stackServerApp = new Proxy({} as ServerApp, {
   get(_target, prop, receiver) {
     const app = getApp();
     const value = Reflect.get(app as object, prop, receiver);
