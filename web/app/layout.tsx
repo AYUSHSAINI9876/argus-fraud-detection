@@ -4,6 +4,17 @@ import { stackServerApp } from "@/stack";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
+/**
+ * Nothing in this console is statically prerenderable.
+ *
+ * Every route reads the session cookie and calls the risk API, so a cached
+ * HTML shell would be either useless or a data leak. Declaring it here rather
+ * than per-page also keeps the build from evaluating StackProvider at compile
+ * time — prerendering `/_not-found` otherwise constructs the Stack Auth app
+ * without credentials and fails the build.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "Argus — Risk Intelligence",
