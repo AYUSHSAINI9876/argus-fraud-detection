@@ -1,28 +1,60 @@
-# Screenshots
+# Screenshot capture checklist
 
-These are referenced by the root `README.md`. Capture them **after** bringing
-the stack up and replaying traffic, otherwise every panel renders its empty
-state and the screenshots undersell the project.
+The README references six images from this directory. They are **not committed
+as placeholders** — an empty or mocked screenshot is worse than none, because a
+reviewer who clicks through and finds a stub trusts the rest of the repo less.
+
+Capture them once the stack is running with real traffic, then commit.
+
+## Prerequisites
 
 ```bash
+# 1. artefacts must exist (they are committed, so this is usually a no-op)
+ls ml/artifacts/xgboost_risk.joblib
+
+# 2. bring up the stack
 docker compose up --build
-cd ml && python -m argus_ml.replay --rate 20 --limit 5000
+
+# 3. feed it real traffic — without this every page is empty
+cd ml && python -m argus_ml.replay --rate 40 --limit 8000
 ```
 
-Then capture at **1600×1000**, dark theme, browser chrome cropped out.
+Let the replay finish. The dashboard aggregates over a time window, so
+screenshots taken mid-replay will show a half-filled chart.
 
-| File | Route | Frame it on |
+## Before capturing
+
+- **Use dark mode.** The console is designed dark-first; the light variant
+  exists for accessibility, not for marketing.
+- **Window at 1440×900 or wider.** Narrower and the case-detail side rail wraps
+  under the main column.
+- **Zoom at 100%.** Browser zoom produces soft text that looks like a
+  compression artefact in a README.
+- **Work two or three cases first** (claim → note → dispose) so the audit log
+  and realised-precision tile have content. An audit log screenshot with one
+  row does not demonstrate anything.
+
+## The six shots
+
+| File | Page | Frame it so this is visible |
 |---|---|---|
-| `01-overview.png` | `/` | The four stat tiles plus the decision-volume chart with real traffic in it |
-| `02-queue.png` | `/queue` | The expected-loss column — that ordering is the point of the page |
-| `03-case-detail.png` | `/cases/<id>` | A case whose SHAP bars show both risk drivers and mitigating factors |
-| `04-model-health.png` | `/models` | The comparison table with the baseline row visible above the champion |
-| `05-policy.png` | `/policy` | The break-even curve |
-| `06-audit.png` | `/audit` | A few rows with before → after diffs, ideally including a block release |
+| `01-overview.png` | `/` | All four stat tiles **and** the decision-volume chart. The p99 latency figure is the detail people look for. |
+| `02-queue.png` | `/queue` | The sort control plus at least 8 rows, so the expected-loss ordering is legible — ideally with a lower-risk/higher-amount row ranked above a higher-risk/small one. That row *is* the argument. |
+| `03-case-detail.png` | `/cases/[id]` | The risk badge, the rationale block, and the full SHAP attribution list including at least one mitigating factor. Pick a case with a `geo_velocity` or `account_takeover` signature — the drivers read clearly. |
+| `04-model-health.png` | `/models` | The comparison table with the baseline row **above** the champion, plus the per-typology recall panel showing bust-out lowest. |
+| `05-policy.png` | `/policy` | Current parameters and the break-even curve side by side. |
+| `06-audit.png` | `/audit` | Several rows with different action types — ideally including a `case.release_block`, which is the one that moves money. |
 
-Pick a case for `03` that has a genuinely interesting story — an account-takeover
-pattern with `is_new_device` and `is_new_country` both firing reads far better
-than a borderline one.
+## Format
 
-Keep each file under ~400 KB (PNG, or JPEG at quality 85) so the repo stays
-light.
+- **PNG**, not JPEG — screenshots of text compress badly as JPEG.
+- Keep each **under ~400 KB**. If a shot is larger, the window is too big;
+  resize rather than compressing to mush.
+- Do not annotate with arrows or callouts. The README prose already says what
+  to look at, and annotations date badly.
+
+## A note on the data
+
+Every figure in these screenshots comes from the synthetic generator. That is
+worth saying out loud in any writeup that uses them — the numbers are real
+outputs of a real pipeline, but the underlying fraud is simulated.
