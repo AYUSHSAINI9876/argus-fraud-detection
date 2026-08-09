@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -67,6 +68,30 @@ class Settings(BaseSettings):
     llm_effort: str = "low"
     copilot_enabled: bool = True
     copilot_max_similar_cases: int = 5
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalise_database_url(cls, v: str) -> str:
+        """Coerce a managed-provider URL into the async driver form.
+
+        Render, Heroku, Railway and Neon all hand out `postgres://...`.
+        SQLAlchemy 2 removed support for that scheme outright, and even
+        `postgresql://` would select the *sync* psycopg driver — which fails
+        at runtime under `create_async_engine`. Rewriting here means the same
+        image boots unchanged whether the URL came from a managed provider,
+        docker-compose, or a local dev shell.
+        """
+        if v.startswith("postgres://"):
+            v = "postgresql+asyncpg://" + v[len("postgres://"):]
+        elif v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+
+        # Managed providers often append `?sslmode=require`. libpq understands
+        # that; asyncpg does not and raises on the unknown keyword. asyncpg
+        # negotiates TLS automatically, so dropping it is safe.
+        if "?sslmode=" in v:
+            v = v.split("?sslmode=")[0]
+        return v
 
     @property
     def jwks_url(self) -> str:
