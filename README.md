@@ -26,6 +26,74 @@ role-based access control, a feature store with genuine train/serve parity,
 shadow-mode challenger evaluation, drift monitoring, an append-only audit log,
 and an analyst console.
 
+## The console
+
+<div align="center">
+
+### Overview — live decisioning
+![Overview dashboard](docs/screenshots/01-overview.png)
+
+</div>
+
+Volume, block and review rates, p95/p99 scoring latency, and **realised
+precision** — the share of analyst-worked alerts that turned out to be genuine
+fraud. Offline PR-AUC says what the model *should* do; realised precision says
+what it *is* doing, and the gap between them is the number worth watching.
+
+<div align="center">
+
+### Case queue — ranked by expected loss
+![Case queue](docs/screenshots/02-queue.png)
+
+</div>
+
+The ordering is the point. The queue sorts by **risk × amount**, not by risk
+score: an analyst hour spent on a 0.92-risk $14 charge is an hour not spent on a
+0.61-risk $8,400 one. Sorting a fraud queue by score alone is one of the most
+common and most expensive mistakes in the domain.
+
+<div align="center">
+
+### Case detail — why this transaction was flagged
+![Case detail with SHAP attributions](docs/screenshots/03-case-detail.png)
+
+</div>
+
+Exact SHAP attributions split into risk drivers and mitigating factors, with
+feature names translated into language an analyst can paste into a case note.
+Every decision is answerable, which is what makes the platform deployable at all.
+
+<div align="center">
+
+### Model health — the baseline sits above the champion
+![Model health](docs/screenshots/04-model-health.png)
+
+</div>
+
+PR-AUC as the headline, calibration reliability, and **recall broken out per
+attack type** — because an aggregate of 0.70 can hide a typology the model
+catches none of.
+
+<details>
+<summary><b>Policy and audit log</b></summary>
+
+<div align="center">
+
+![Decision policy](docs/screenshots/05-policy.png)
+![Audit log](docs/screenshots/06-audit.png)
+
+</div>
+
+The policy page exposes the break-even curve so a risk manager can read the
+decision boundary rather than trust a black box. The audit log is append-only —
+the repository exposes no update or delete path — and records every privileged
+action with the actor's verified subject claim.
+
+</details>
+
+> Screenshots are captured after `docker compose up` plus a replay run; see
+> [`docs/screenshots/`](docs/screenshots/) for the capture checklist.
+
 ## Why it is built the way it is
 
 Most portfolio fraud projects follow the same path — load a Kaggle CSV, train
