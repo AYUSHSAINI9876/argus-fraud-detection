@@ -47,7 +47,9 @@ export default async function ModelsPage() {
   }
 
   const reports: Report[] = data.evaluation;
-  const baseline = reports.find((r) => r.model_name === "logistic_baseline");
+  // The baseline is rendered from `reports` directly in the comparison table —
+  // it needs no separate binding here. Only the champion is pulled out, for
+  // the per-typology and calibration panels below.
   const champion = reports.find((r) => r.model_name === "xgboost_risk");
   const importance: Record<string, number> = data.global_importance ?? {};
   const topFeatures = Object.entries(importance).slice(0, 12);
