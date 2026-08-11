@@ -19,6 +19,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          # Both packages pin dependencies in pyproject.toml rather than a
+          # committed uv.lock. Without this glob the action looks for
+          # **/uv.lock, finds nothing, and fails the job outright.
+          cache-dependency-glob: "**/pyproject.toml"
 
       - name: Install
         working-directory: ml
@@ -79,6 +83,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          # Both packages pin dependencies in pyproject.toml rather than a
+          # committed uv.lock. Without this glob the action looks for
+          # **/uv.lock, finds nothing, and fails the job outright.
+          cache-dependency-glob: "**/pyproject.toml"
 
       - name: Install
         working-directory: api
@@ -120,12 +128,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - working-directory: web
-        run: npm ci || npm install
+      # Strict `npm ci`, with no `|| npm install` fallback. The fallback hid a
+      # genuinely out-of-sync lock file: the install step went green while
+      # resolving a different dependency tree than the one committed, which is
+      # exactly the drift a lock file exists to prevent.
+      - name: Install
+        working-directory: web
+        run: npm ci
 
       - name: Typecheck
         working-directory: web
