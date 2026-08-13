@@ -24,10 +24,15 @@ jobs:
           # **/uv.lock, finds nothing, and fails the job outright.
           cache-dependency-glob: "**/pyproject.toml"
 
+      # --python 3.11 is required, not cosmetic. The runner defaults to 3.12,
+      # and shap -> numba -> llvmlite has no 3.12-compatible release in the
+      # range an unbounded requires-python admits, so the resolver backtracks
+      # to llvmlite 0.36.0 (2021) and fails to build. 3.11 also matches
+      # infra/api.Dockerfile, so CI and the shipped image resolve identically.
       - name: Install
         working-directory: ml
         run: |
-          uv venv
+          uv venv --python 3.11
           uv pip install -e ".[dev]"
 
       - name: Lint
@@ -91,7 +96,7 @@ jobs:
       - name: Install
         working-directory: api
         run: |
-          uv venv
+          uv venv --python 3.11
           uv pip install -e "../ml" -e ".[dev]"
 
       - name: Lint
