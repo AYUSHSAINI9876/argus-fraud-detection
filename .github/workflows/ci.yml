@@ -9,6 +9,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every Python step calls .venv/bin/<tool> directly rather than `uv run`.
+# That is deliberate: `uv run` treats the directory as a uv project and
+# performs its own resolution, ignoring the environment `uv pip install`
+# just built. On this dependency graph it re-resolved shap -> numba ->
+# llvmlite down to 2021 releases that cannot build on any supported Python,
+# so the install step passed and the very next step failed. Invoking the
+# venv's binaries removes that second resolution entirely — CI then runs
+# exactly what was installed, which is the same property the application's
+# train/serve parity check exists to guarantee.
+
 jobs:
   ml:
     name: ML — lint, test, training smoke
@@ -19,39 +29,38 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          # Both packages pin dependencies in pyproject.toml rather than a
-          # committed uv.lock. Without this glob the action looks for
-          # **/uv.lock, finds nothing, and fails the job outright.
+          # Dependencies are pinned in pyproject.toml, not a committed
+          # uv.lock. Without this glob the action looks for **/uv.lock,
+          # finds nothing, and fails the job before any step runs.
           cache-dependency-glob: "**/pyproject.toml"
 
-      # --python 3.11 is required, not cosmetic. The runner defaults to 3.12,
-      # and shap -> numba -> llvmlite has no 3.12-compatible release in the
-      # range an unbounded requires-python admits, so the resolver backtracks
-      # to llvmlite 0.36.0 (2021) and fails to build. 3.11 also matches
-      # infra/api.Dockerfile, so CI and the shipped image resolve identically.
+      # --python 3.11 is load-bearing. The runner defaults to 3.12, and
+      # matching infra/api.Dockerfile means CI and the shipped image resolve
+      # identically.
       - name: Install
         working-directory: ml
         run: |
           uv venv --python 3.11
           uv pip install -e ".[dev]"
+          .venv/bin/python -c "import shap, numba, llvmlite, xgboost; print('shap', shap.__version__, '| llvmlite', llvmlite.__version__)"
 
       - name: Lint
         working-directory: ml
-        run: uv run ruff check argus_ml
+        run: .venv/bin/ruff check argus_ml
 
       - name: Unit tests
         working-directory: ml
-        run: uv run pytest --cov=argus_ml --cov-report=term-missing
+        run: .venv/bin/pytest --cov=argus_ml --cov-report=term-missing
 
       # A model that trains is not the same as a model that is any good.
       # This gate trains on a small world and fails the build if the champion
-      # cannot beat the logistic baseline — catching a regression in feature
-      # engineering that unit tests would happily pass.
+      # cannot beat the logistic baseline — catching a feature-engineering
+      # regression that unit tests would happily pass.
       - name: Training smoke + baseline gate
         working-directory: ml
         run: |
-          uv run python -m argus_ml.train --customers 1500 --days 90 --out ./artifacts_ci
-          uv run python - <<'PY'
+          .venv/bin/python -m argus_ml.train --customers 1500 --days 90 --out ./artifacts_ci
+          .venv/bin/python - <<'PY'
           import json, sys
           reports = json.load(open("artifacts_ci/evaluation.json"))
           by = {r["model_name"]: r for r in reports}
@@ -85,12 +94,10 @@ jobs:
         ports: ["6379:6379"]
     steps:
       - uses: actions/checkout@v4
+
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          # Both packages pin dependencies in pyproject.toml rather than a
-          # committed uv.lock. Without this glob the action looks for
-          # **/uv.lock, finds nothing, and fails the job outright.
           cache-dependency-glob: "**/pyproject.toml"
 
       - name: Install
@@ -98,25 +105,25 @@ jobs:
         run: |
           uv venv --python 3.11
           uv pip install -e "../ml" -e ".[dev]"
+          .venv/bin/python -c "import fastapi, sqlalchemy, alembic; print('fastapi', fastapi.__version__)"
 
       - name: Lint
         working-directory: api
-        run: uv run ruff check app
+        run: .venv/bin/ruff check app
 
       # Apply migrations against a real Postgres, then assert the resulting
       # schema matches the models. `alembic check` fails if autogenerate would
-      # produce a non-empty diff — i.e. if someone changed a model without
-      # writing the migration for it. Without this, schema drift is only
-      # discovered on deploy.
+      # produce a non-empty diff — i.e. if a model changed without a migration.
+      # Without this, schema drift is only discovered on deploy.
       - name: Migrations apply and match models
         working-directory: api
         env:
           DATABASE_URL: postgresql+asyncpg://argus:argus@localhost:5432/argus_test
         run: |
-          uv run alembic upgrade head
-          uv run alembic check
-          uv run alembic downgrade base
-          uv run alembic upgrade head
+          .venv/bin/alembic upgrade head
+          .venv/bin/alembic check
+          .venv/bin/alembic downgrade base
+          .venv/bin/alembic upgrade head
 
       - name: Tests
         working-directory: api
@@ -124,7 +131,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://argus:argus@localhost:5432/argus_test
           REDIS_URL: redis://localhost:6379/0
           AUTH_ENABLED: "false"
-        run: uv run pytest
+        run: .venv/bin/pytest
 
   web:
     name: Web — typecheck, lint, build
