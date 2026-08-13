@@ -2,7 +2,13 @@
 name = "argus-ml"
 version = "0.1.0"
 description = "Argus — offline training, evaluation and monitoring pipeline for the risk engine"
-requires-python = ">=3.11"
+# Upper bound is load-bearing, not cosmetic. With an open-ended ">=3.11",
+# uv resolves for every future interpreter; shap -> numba -> llvmlite has no
+# single release satisfying all of them, so the resolver backtracks to
+# llvmlite 0.36 (2021), which then fails to build on anything past 3.9.
+# Bounding the range keeps resolution on versions that actually exist as
+# wheels. Matches the 3.11 used by the Dockerfile and CI.
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",

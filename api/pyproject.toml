@@ -2,7 +2,9 @@
 name = "argus-api"
 version = "0.1.0"
 description = "Argus — real-time transaction risk scoring API"
-requires-python = ">=3.11"
+# Kept in lockstep with ml/pyproject.toml — the API installs argus-ml, so a
+# wider range here would reintroduce the same llvmlite backtracking.
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
