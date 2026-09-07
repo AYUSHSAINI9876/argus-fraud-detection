@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 
 /**
  * Server-side proxy for case mutations.
@@ -27,11 +27,11 @@ export async function POST(
     return NextResponse.json({ detail: "Unknown action" }, { status: 400 });
   }
 
-  const user = await stackServerApp.getUser();
+  const user = await getConsoleUser();
   if (!user) {
     return NextResponse.json({ detail: "Not authenticated" }, { status: 401 });
   }
-  const { accessToken } = await user.getAuthJson();
+  const { accessToken } = user;
 
   const body = await req.text();
 

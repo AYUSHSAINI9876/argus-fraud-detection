@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { AlertTriangle, ScrollText } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Panel } from "@/components/ui";
 
@@ -16,8 +16,8 @@ const ACTION_STYLE: Record<string, string> = {
 };
 
 export default async function AuditPage() {
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let rows: any[] = [];
   let error: string | null = null;

@@ -8,8 +8,9 @@ import {
   ScrollText,
   ShieldCheck,
   SlidersHorizontal,
+  TriangleAlert,
 } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { authDisabled, getConsoleUser, isAdmin } from "@/lib/auth";
 
 /**
  * Console shell.
@@ -32,15 +33,11 @@ export default async function ConsoleLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await stackServerApp.getUser();
+  const noAuth = authDisabled();
+  const user = await getConsoleUser();
   if (!user) redirect("/handler/sign-in");
 
-  // Role lives in Stack Auth's server metadata; VIEWER is the safe default
-  // for a user who has signed up but not yet been granted anything.
-  const role =
-    ((user.serverMetadata as Record<string, unknown> | null)?.role as string) ??
-    "VIEWER";
-  const isAdmin = role === "ADMIN";
+  const admin = isAdmin(user.role);
 
   return (
     <div className="flex min-h-screen">
@@ -52,7 +49,7 @@ export default async function ConsoleLayout({
         </div>
 
         <nav className="flex-1 p-2 space-y-0.5">
-          {NAV.filter((i) => !i.minRole || isAdmin).map(({ href, label, icon: Icon }) => (
+          {NAV.filter((i) => !i.minRole || admin).map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -66,13 +63,39 @@ export default async function ConsoleLayout({
           ))}
         </nav>
 
+        {/* Local mode is stated permanently and in the risk palette. Someone
+            demoing this should never be in doubt about whether the identity
+            in the corner is real. */}
+        {noAuth && (
+          <div
+            className="mx-2 mb-2 rounded-md border border-risk-moderate/30
+                       bg-risk-moderate/10 px-2.5 py-2 flex gap-2"
+          >
+            <TriangleAlert
+              size={13}
+              className="text-risk-moderate shrink-0 mt-0.5"
+              strokeWidth={2}
+            />
+            <div className="min-w-0">
+              <div className="text-2xs font-semibold text-risk-moderate uppercase tracking-wide">
+                Auth disabled
+              </div>
+              <div className="text-2xs text-ink-lo leading-snug mt-0.5">
+                Local mode — set Stack Auth keys to enable sign-in.
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="border-t border-surface-3 p-3 flex items-center gap-2">
-          <UserButton />
+          {!noAuth && <UserButton />}
           <div className="min-w-0">
             <div className="text-xs font-medium truncate text-ink-hi">
               {user.displayName ?? user.primaryEmail}
             </div>
-            <div className="text-2xs text-ink-lo uppercase tracking-wide">{role}</div>
+            <div className="text-2xs text-ink-lo uppercase tracking-wide">
+              {user.role}
+            </div>
           </div>
         </div>
       </aside>

@@ -1,5 +1,5 @@
 import { AlertTriangle, GitCompare } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Panel } from "@/components/ui";
 import { PRCurveChart } from "@/components/charts";
@@ -21,8 +21,8 @@ interface Report {
 }
 
 export default async function ModelsPage() {
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let data: any = null;
   let error: string | null = null;

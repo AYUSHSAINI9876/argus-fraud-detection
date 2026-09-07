@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { AlertTriangle, Inbox, ArrowUpDown } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError, type CaseSummary } from "@/lib/api";
 import { DecisionBadge, EmptyState, Panel, RiskBadge } from "@/components/ui";
 import { formatCurrency } from "@/lib/risk";
@@ -27,8 +27,8 @@ export default async function QueuePage({
   const sort = params.sort ?? "expected_loss";
   const status = params.status ?? "open";
 
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let cases: CaseSummary[] = [];
   let error: string | null = null;

@@ -7,7 +7,7 @@ import {
   Timer,
   TrendingUp,
 } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError, type Overview, type TimeseriesPoint } from "@/lib/api";
 import { EmptyState, Panel, StatTile } from "@/components/ui";
 import { DecisionVolumeChart } from "@/components/charts";
@@ -17,8 +17,8 @@ export const metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let overview: Overview | null = null;
   let series: TimeseriesPoint[] = [];

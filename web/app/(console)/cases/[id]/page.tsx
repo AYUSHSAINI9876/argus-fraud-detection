@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, Bot, MapPin, Sparkles } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError, type CaseDetail } from "@/lib/api";
 import { DecisionBadge, Panel, RiskBadge } from "@/components/ui";
 import { AttributionBar } from "@/components/attribution";
@@ -17,8 +17,8 @@ export default async function CasePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let detail: CaseDetail;
   try {
@@ -28,9 +28,7 @@ export default async function CasePage({
     throw e;
   }
 
-  const role =
-    ((user?.serverMetadata as Record<string, unknown> | null)?.role as string) ??
-    "VIEWER";
+  const role = user?.role ?? "VIEWER";
 
   const increases = detail.attributions
     .filter((a) => a.direction === "increases_risk")

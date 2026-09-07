@@ -1,5 +1,5 @@
 import { AlertTriangle, ShieldAlert } from "lucide-react";
-import { stackServerApp } from "@/stack";
+import { getConsoleUser } from "@/lib/auth";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Panel } from "@/components/ui";
 import { formatCurrency } from "@/lib/risk";
@@ -19,8 +19,8 @@ const FIELD_HELP: Record<string, string> = {
 };
 
 export default async function PolicyPage() {
-  const user = await stackServerApp.getUser();
-  const { accessToken } = (await user?.getAuthJson()) ?? { accessToken: null };
+  const user = await getConsoleUser();
+  const accessToken = user?.accessToken ?? null;
 
   let data: { policy: Record<string, number>; breakeven_curve: any[] } | null = null;
   let error: string | null = null;
