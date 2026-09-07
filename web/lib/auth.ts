@@ -45,10 +45,30 @@ const LOCAL_USER: ConsoleUser = {
   accessToken: null,
 };
 
+/**
+ * Is this a real deployment, as opposed to a local production-mode build?
+ *
+ * Deliberately not `NODE_ENV`. That means "optimized build", not "deployed":
+ * it is `production` inside the docker-compose image too, which is the
+ * documented keyless quickstart. Gating on it made `docker compose up` throw
+ * the very error meant for a misconfigured Vercel deploy.
+ *
+ * `ENVIRONMENT` is the same variable the API gates on, and compose defaults it
+ * to `development`, so both halves agree on what "production" means.
+ * `VERCEL_ENV` is the backstop: a Vercel production deploy is guarded even if
+ * nobody remembered to set ENVIRONMENT.
+ */
+function isDeployedProduction(): boolean {
+  return (
+    process.env.ENVIRONMENT === "production" ||
+    process.env.VERCEL_ENV === "production"
+  );
+}
+
 export function authDisabled(): boolean {
   if (process.env.NEXT_PUBLIC_STACK_PROJECT_ID) return false;
 
-  if (process.env.NODE_ENV === "production") {
+  if (isDeployedProduction()) {
     throw new Error(
       "NEXT_PUBLIC_STACK_PROJECT_ID is not set. Refusing to serve the console " +
         "unauthenticated in production — set the Stack Auth environment " +

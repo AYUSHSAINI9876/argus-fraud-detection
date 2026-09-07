@@ -178,5 +178,47 @@ jobs:
           context: .
           file: infra/api.Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          tags: argus-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # The web image was previously unbuilt by CI, which is why it went
+      # unnoticed that its runner stage copied `.next/standalone` while
+      # next.config.js never emitted it — the job that would have caught it
+      # did not exist.
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: infra/web.Dockerfile
+          push: false
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # An image that builds is not the same as an image that can serve. The
+      # artefacts were never copied in, and compose's bind mount supplied them
+      # locally — so every build passed and only a real deploy would have
+      # failed. This asserts the image carries what it needs on its own, then
+      # loads the champion from it to prove the files are usable and not just
+      # present.
+      - name: API image can serve from its own artefacts
+        run: |
+          docker run --rm argus-api:ci python -c "
+          from pathlib import Path
+          art = Path('/app/ml/artifacts')
+          need = ['xgboost_risk.joblib', 'logistic_baseline.joblib',
+                  'gaussian_anomaly.joblib', 'feature_names.json',
+                  'customers.parquet', 'merchants.parquet']
+          missing = [n for n in need if not (art / n).exists()]
+          assert not missing, f'missing artefacts in image: {missing}'
+          assert Path('/app/alembic.ini').exists(), 'alembic.ini missing from image'
+          assert Path('/app/alembic/versions').is_dir(), 'alembic versions missing'
+
+          import joblib
+          model = joblib.load(art / 'xgboost_risk.joblib')
+          names = __import__('json').loads((art / 'feature_names.json').read_text())
+          print(f'champion loads from the image: {len(names)} features')
+          "

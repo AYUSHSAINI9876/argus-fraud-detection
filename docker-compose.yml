@@ -71,6 +71,10 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     environment:
+      # Same variable the API gates on, so both halves agree on what
+      # "production" means. Left at development, the console runs in keyless
+      # local mode; set to production it refuses to serve without Stack Auth.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       NEXT_PUBLIC_STACK_PROJECT_ID: ${STACK_PROJECT_ID:-}
       NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${STACK_PUBLISHABLE_CLIENT_KEY:-}
       STACK_SECRET_SERVER_KEY: ${STACK_SECRET_SERVER_KEY:-}
