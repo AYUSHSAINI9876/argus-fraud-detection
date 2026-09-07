@@ -235,42 +235,91 @@ precedes the transaction:
 
 ## Quickstart
 
+Nothing below needs a Stack Auth project, an Anthropic key, or a training run.
+Those are all optional upgrades — see [Running with auth](#running-with-auth).
+
 ```bash
-git clone https://github.com/<you>/Argus.git && cd Argus
+git clone https://github.com/AYUSHSAINI9876/argus-fraud-detection.git
+cd argus-fraud-detection
+cp .env.example .env
 
-# 1. Train (generates data, trains all models, writes artefacts)
-cd ml && uv venv && uv pip install -e ".[dev]"
-python -m argus_ml.train --customers 8000 --days 180
-
-# 2. Bring up the stack
-cd .. && cp .env.example .env      # fill in Stack Auth keys
+# 1. Bring up Postgres, Redis, the API and the console
 docker compose up --build
 
-# 3. Feed it live traffic (otherwise the console is an empty shell)
-cd ml && python -m argus_ml.replay --rate 20 --limit 5000
-
-# API      http://localhost:8000/docs
-# Console  http://localhost:3000
+# 2. Feed it traffic — the console is an empty shell until you do
+cd ml && uv venv && uv pip install -e ".[dev]"
+python -m argus_ml.replay --rate 20 --limit 5000
 ```
 
-The replay streams **test-window** transactions — the ones no model was
-trained on — through the real HTTP path, with exponentially distributed
-inter-arrival times. A constant rate would make the latency percentiles on the
-dashboard look better than they deserve to.
+| | |
+|---|---|
+| Console | http://localhost:3000 |
+| API docs | http://localhost:8000/docs |
+| Health | http://localhost:8000/health |
 
-### Auth and the build
+The models are committed (~1.5 MB), so the API scores real transactions on the
+first `docker compose up`. Training is only needed to regenerate them:
 
-`AUTH_ENABLED=false` lets the **API** run without a Stack Auth project, and the
-API force-rejects that flag when `ENVIRONMENT=production`, so it cannot become
-the reason production is unprotected.
+```bash
+cd ml && python -m argus_ml.train --customers 8000 --days 180
+```
 
-It does **not** cover the console. `web/stack.ts` constructs `StackServerApp` at
-module scope, so every route that imports it — including the root layout, and
-therefore `/_not-found` — throws without credentials, and `next build` fails at
-page-data collection with *"you haven't provided a project ID"*. The three
-`NEXT_PUBLIC_STACK_*` / `STACK_SECRET_SERVER_KEY` values must be present in
-`web/.env.local` (or the deployment's env) **for the build itself**, not only at
-runtime. Set them before `npm run build` and before deploying to Vercel.
+Training also writes `recent_transactions.parquet` — the held-out **test
+window**, which no model was trained on. When that file is present the replay
+streams it; when it is absent (a fresh clone — it is too large to commit) the
+replay generates an equivalent stream in-process from the same generator. Both
+paths go through the real HTTP scoring path with exponentially distributed
+inter-arrival times, because a constant rate would make the latency percentiles
+on the dashboard look better than they deserve to.
+
+### Running locally without a database
+
+To run the API directly rather than in Docker:
+
+```bash
+docker compose up -d postgres redis
+
+cd api && uv venv && uv pip install -e "../ml" -e ".[dev]"
+AUTH_ENABLED=false uvicorn app.main:app --reload
+
+cd web && npm install && npm run dev
+```
+
+### Running with auth
+
+Both halves run keyless by default, and both refuse to do so in production:
+
+| | Local (no keys) | Production |
+|---|---|---|
+| **API** | `AUTH_ENABLED=false` injects a synthetic `ADMIN` | Startup **aborts** if auth is disabled |
+| **Console** | No `NEXT_PUBLIC_STACK_PROJECT_ID` → local `ADMIN` + a persistent "Auth disabled" banner | First request **throws** if the project ID is missing |
+
+To turn on real sign-in, create a project at
+[app.stack-auth.com](https://app.stack-auth.com) and set
+`NEXT_PUBLIC_STACK_PROJECT_ID`, `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY` and
+`STACK_SECRET_SERVER_KEY`. The console picks up real auth as soon as the project
+ID is present; no code change.
+
+The API verifies tokens independently against Stack Auth's published JWKS rather
+than trusting the frontend — neither side takes the other's word for who the
+caller is.
+
+`npm run build` works without any of these keys. Every route is
+`force-dynamic`, so the build never evaluates the auth layer, and a missing key
+surfaces at request time instead of breaking a credential-free clone.
+
+### Tests
+
+```bash
+cd api && pytest        # 65 tests — policy, auth, config, persistence
+cd ml  && pytest        # 29 tests — features, evaluation
+cd web && npm run typecheck && npm run lint && npm run build
+```
+
+The persistence tests need Postgres (`docker compose up -d postgres`) and skip
+cleanly without it. CI additionally applies the migrations, asserts the schema
+matches the models, and fails the build if the champion stops beating the
+logistic baseline.
 
 ## Roles
 
