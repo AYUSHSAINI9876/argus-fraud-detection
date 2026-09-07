@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from argus_ml.data.schema import Transaction
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentUser, Role
+from app.core.db import get_session
+from app.services.persistence import persist_decision
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+Session = Annotated[AsyncSession, Depends(get_session)]
 
 
 class ScoreOut(BaseModel):
@@ -53,10 +58,30 @@ def _to_out(result) -> ScoreOut:
     )
 
 
+async def _record(session, txn: dict, result, request: Request) -> None:
+    """Persist a decision without letting a storage fault reject the payment.
+
+    The decision has already been computed and is about to be returned; a
+    database problem must not turn a valid authorisation into a 500. The
+    failure is logged at ERROR so it surfaces in monitoring rather than
+    disappearing.
+    """
+    try:
+        await persist_decision(
+            session, txn, result, getattr(request.state, "request_id", None)
+        )
+    except Exception:
+        logger.exception(
+            "failed to persist decision for %s — decision served but NOT recorded",
+            result.transaction_id,
+        )
+
+
 @router.post("/score", response_model=ScoreOut, status_code=status.HTTP_200_OK)
 async def score_transaction(
     request: Request,
     txn: Transaction,
+    session: Session,
     user: CurrentUser,
 ) -> ScoreOut:
     """Score a single transaction and return an explainable decision."""
@@ -74,6 +99,7 @@ async def score_transaction(
             status.HTTP_500_INTERNAL_SERVER_ERROR, f"Scoring unavailable: {exc}"
         ) from exc
 
+    await _record(session, txn.model_dump(), result, request)
     return _to_out(result)
 
 
@@ -81,6 +107,7 @@ async def score_transaction(
 async def score_batch(
     request: Request,
     payload: BatchIn,
+    session: Session,
     user: CurrentUser,
 ) -> list[ScoreOut]:
     """Score up to 500 transactions.
@@ -89,5 +116,8 @@ async def score_batch(
     batch would hold the event loop and blow the p99 for concurrent callers.
     """
     scorer = request.app.state.scorer
-    results = await scorer.score_batch([t.model_dump() for t in payload.transactions])
+    payloads = [t.model_dump() for t in payload.transactions]
+    results = await scorer.score_batch(payloads)
+    for txn, result in zip(payloads, results, strict=True):
+        await _record(session, txn, result, request)
     return [_to_out(r) for r in results]
