@@ -13,14 +13,21 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",
     "scikit-learn>=1.5",
-    "xgboost>=2.1",
+    # Split by platform so the serving image does not ship CUDA.
+    #
+    # On Linux, `xgboost` 3.x hard-depends on nvidia-nccl-cu12 — a 326 MB
+    # wheel for GPU training that a CPU inference container never calls.
+    # `xgboost-cpu` is the same version of the same library without it: same
+    # module name, same model format, so the committed artefacts load
+    # unchanged. The markers are mutually exclusive, so exactly one is ever
+    # installed. Non-Linux wheels carry no CUDA payload to begin with.
+    "xgboost-cpu>=2.1; sys_platform == 'linux'",
+    "xgboost>=2.1; sys_platform != 'linux'",
     "shap>=0.46",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
     "pyarrow>=17.0",
     "joblib>=1.4",
-    "matplotlib>=3.9",
-    "mlflow>=2.16",
 ]
 
 [project.optional-dependencies]
