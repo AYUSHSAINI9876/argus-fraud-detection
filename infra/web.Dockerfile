@@ -1,10 +1,18 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+
 # Strict ci — matching the CI job. A silent fallback to `npm install` would
 # resolve a different tree than the committed lock file, which is the drift a
 # lock file exists to prevent.
-RUN npm ci
+#
+# The retry settings are not superstition: this install pulls ~1200 packages,
+# and a single ECONNRESET part-way through fails the whole layer. npm's
+# defaults give up quickly, which turns a transient blip into a failed build.
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set fetch-timeout 600000 \
+    && npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
