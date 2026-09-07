@@ -1,0 +1,41 @@
+# Keeps the build context small. `render.yaml` and the CI docker job build with
+# the repo root as context, which without this ships node_modules, virtualenvs
+# and .git to the daemon — hundreds of megabytes that every layer then ignores.
+
+.git
+.github
+
+# Node
+web/node_modules
+web/.next
+web/out
+web/.turbo
+**/*.tsbuildinfo
+
+# Python
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+**/.coverage
+**/htmlcov
+
+# Large regenerable artefacts. The API never reads these two; they exist for
+# the local replay and the drift baseline. The serving artefacts it *does*
+# read are deliberately not excluded.
+ml/artifacts/recent_transactions.parquet
+ml/artifacts/reference_sample.parquet
+ml/artifacts_smoke
+ml/artifacts_ci
+mlruns
+
+# Secrets and local overrides must never enter an image layer.
+.env
+.env.local
+.env.*.local
+
+docs
+*.md

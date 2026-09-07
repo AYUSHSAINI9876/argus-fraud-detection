@@ -41,6 +41,16 @@ WORKDIR /app
 COPY --chown=argus:argus api/app /app/app
 COPY --chown=argus:argus ml/argus_ml /app/argus_ml
 
+# Serving artefacts (~1.5 MB) ship inside the image.
+#
+# docker-compose bind-mounts this directory so retraining does not need a
+# rebuild, which masked the fact that it was never copied: any deploy without
+# that mount — Render, or a plain `docker run` — started with ARTIFACTS_DIR
+# pointing at a path that did not exist and died in ModelBundle.load(). Baking
+# them in is also what lets a cloud deploy work straight from a git clone with
+# no separate artefact store.
+COPY --chown=argus:argus ml/artifacts /app/ml/artifacts
+
 USER argus
 EXPOSE 8000
 

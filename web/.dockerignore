@@ -1,0 +1,21 @@
+# The build context is sent to the daemon before anything runs, so anything
+# listed here is pure transfer cost. Without this file the context is ~330 MB
+# of node_modules and .next, which takes minutes to send and is then thrown
+# away — the image installs its own dependencies from the lock file.
+node_modules
+.next
+out
+.turbo
+npm-debug.log*
+*.tsbuildinfo
+
+# Never bake secrets or local overrides into an image layer.
+.env
+.env.local
+.env.*.local
+
+.git
+.gitignore
+Dockerfile*
+.dockerignore
+README.md
