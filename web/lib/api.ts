@@ -7,8 +7,27 @@
  * browser's reach entirely.
  */
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+/**
+ * Where the risk API lives, resolved server-side at request time.
+ *
+ * `API_URL` takes precedence over `NEXT_PUBLIC_API_URL` because this value is
+ * only ever read on the server — by server components and the route handler,
+ * never by the browser, which talks to same-origin Next routes instead. A
+ * NEXT_PUBLIC_ variable is inlined at build time, so it cannot express "the
+ * address differs between building and running", which is exactly the case
+ * under docker-compose: the image is built with a localhost URL, but inside
+ * the container `localhost:8000` is the console itself, not the API. That
+ * mismatch made the composed console render with "Could not reach the risk
+ * engine" on every page.
+ *
+ * NEXT_PUBLIC_API_URL stays as the fallback so existing setups keep working.
+ */
+export const API_BASE =
+  process.env.API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000/api/v1";
+
+const BASE = API_BASE;
 
 export interface Attribution {
   feature: string;

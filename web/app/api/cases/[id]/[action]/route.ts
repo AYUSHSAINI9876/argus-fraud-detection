@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConsoleUser } from "@/lib/auth";
+import { API_BASE } from "@/lib/api";
 
 /**
  * Server-side proxy for case mutations.
@@ -15,7 +16,7 @@ import { getConsoleUser } from "@/lib/auth";
  */
 const ALLOWED = new Set(["claim", "notes", "disposition", "escalate", "release"]);
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+
 
 export async function POST(
   req: NextRequest,
@@ -35,7 +36,7 @@ export async function POST(
 
   const body = await req.text();
 
-  const res = await fetch(`${BASE}/cases/${id}/${action}`, {
+  const res = await fetch(`${API_BASE}/cases/${id}/${action}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

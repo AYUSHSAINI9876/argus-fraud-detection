@@ -78,7 +78,11 @@ services:
       NEXT_PUBLIC_STACK_PROJECT_ID: ${STACK_PROJECT_ID:-}
       NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${STACK_PUBLISHABLE_CLIENT_KEY:-}
       STACK_SECRET_SERVER_KEY: ${STACK_SECRET_SERVER_KEY:-}
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      # Server-side only, and resolved at runtime — so it uses compose's
+      # internal DNS. `localhost:8000` inside this container is the console
+      # itself, not the API; the browser never calls the API directly, it
+      # calls same-origin Next routes.
+      API_URL: http://api:8000/api/v1
     ports:
       - "3000:3000"
     depends_on:
