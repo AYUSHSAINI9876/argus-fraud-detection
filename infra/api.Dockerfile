@@ -51,6 +51,13 @@ COPY --chown=argus:argus ml/argus_ml /app/argus_ml
 # no separate artefact store.
 COPY --chown=argus:argus ml/artifacts /app/ml/artifacts
 
+# Migrations run inside this image, so Alembic's config and versions have to be
+# in it. `alembic.ini` uses a relative script_location and prepend_sys_path=.,
+# both of which resolve correctly from WORKDIR /app: `alembic` -> /app/alembic,
+# and `app` is importable for env.py's settings import.
+COPY --chown=argus:argus api/alembic.ini /app/alembic.ini
+COPY --chown=argus:argus api/alembic /app/alembic
+
 USER argus
 EXPOSE 8000
 

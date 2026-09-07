@@ -38,6 +38,13 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /health
+
+    # The app only calls create_all() outside production, so without this the
+    # production database would have no tables and every query — scoring's
+    # persistence included — would fail against a schema that was never built.
+    # Render runs this after the build and before traffic shifts, so a failed
+    # migration blocks the release instead of half-applying it.
+    preDeployCommand: alembic upgrade head
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -71,7 +78,13 @@ services:
       - key: STACK_SECRET_SERVER_KEY
         sync: false
 
-      # Set to your Vercel URL once the frontend is deployed.
+      # Set to your Vercel URL once the frontend is deployed. Settings parses
+      # this as list[str], so it must be a JSON array, not a bare string:
+      #     ["https://argus-console.vercel.app"]
+      #
+      # The console calls this API from server components and a route handler,
+      # never from the browser, so CORS is not on the critical path — it
+      # matters for /docs and any direct client you point at the service.
       - key: CORS_ORIGINS
         sync: false
 
