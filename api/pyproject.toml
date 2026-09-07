@@ -17,6 +17,12 @@ dependencies = [
     "alembic>=1.13",
     "httpx>=0.27",
     "python-multipart>=0.0.9",
+    # The analyst copilot calls Claude through the official SDK. Previously
+    # undeclared: `AnalystCopilot._get_client()` imports it lazily and the
+    # draft path catches every exception, so a missing SDK degraded silently
+    # to "no narrative" instead of failing — the feature could never work,
+    # and nothing said so.
+    "anthropic>=1.0",
     # Shared feature/model code — the train/serve parity guarantee depends on
     # the API importing the exact same package the trainer used.
     "argus-ml",

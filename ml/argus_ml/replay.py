@@ -25,6 +25,8 @@ from pathlib import Path
 import httpx
 import pandas as pd
 
+from argus_ml.data.generator import WorldConfig, generate_dataset
+
 ARTIFACTS = Path(__file__).resolve().parent.parent / "artifacts"
 
 _WIRE_FIELDS = [
@@ -44,6 +46,36 @@ def _to_payload(row: dict) -> dict:
     return payload
 
 
+def _load_stream(artifacts: Path, limit: int) -> pd.DataFrame:
+    """Source the transactions to replay.
+
+    Prefers the held-out slice written by a training run — replaying data no
+    model was trained on is what makes the console show genuine behaviour.
+
+    Falls back to generating a fresh stream in-process. That file is large and
+    therefore gitignored, so on a fresh clone it does not exist; without this
+    fallback the console stays empty until someone sits through a full
+    training run, which is a poor first five minutes. The generated stream
+    comes from the same `generate_dataset()` the trainer uses, so the wire
+    payloads are identical in shape — only the specific rows differ.
+    """
+    path = artifacts / "recent_transactions.parquet"
+    if path.exists():
+        print(f"source: {path.name} (held-out test window)")
+        return pd.read_parquet(path).tail(limit)
+
+    print(f"source: generated in-process — {path.name} not found.")
+    print("        Run `python -m argus_ml.train` to replay the held-out window.")
+
+    # Sized to produce comfortably more than `limit` rows while staying quick:
+    # roughly 25 transactions per customer over a 45-day window.
+    n_customers = max(400, min(4_000, limit // 12 + 400))
+    df, _ = generate_dataset(
+        WorldConfig(n_customers=n_customers, n_merchants=400, days=45)
+    )
+    return df.tail(limit)
+
+
 async def replay(
     api_url: str,
     token: str | None,
@@ -51,13 +83,7 @@ async def replay(
     limit: int,
     artifacts: Path,
 ) -> None:
-    path = artifacts / "recent_transactions.parquet"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found — run `python -m argus_ml.train` first"
-        )
-
-    df = pd.read_parquet(path).tail(limit)
+    df = _load_stream(artifacts, limit)
     print(f"replaying {len(df):,} transactions at ~{rate}/s -> {api_url}")
 
     headers = {"Content-Type": "application/json"}
